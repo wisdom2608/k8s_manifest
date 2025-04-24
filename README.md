@@ -82,7 +82,6 @@ jobs:
  d) Set an expiration `(recommended: 90 days or more)`.
  e) Under `Repository Access`, choose:
     - Only select `repositories` → choose your `manifest repo` `(e.g., your-username/k8s-manifests)`
-
  f) Under Permissions, enable: 
     - `Contents → Read and Write`
 
