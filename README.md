@@ -1,7 +1,5 @@
-# k8e_manifest
-
-
 # 🛠 GitHub Actions Workflow (Cross-Repo Manifest Update)
+The purpose of this project is to build and push Docker image to Dockerhub using github actions and then, update Kubernetes manifest files which are in a separate repository within the same GitHub account.
 
 ✅ **Prerequisites**:
 1. Personal Access Token (PAT) with repo scope stored in your main repo as a secret:
@@ -11,78 +9,105 @@
  - Your target repo name `(e.g., your-username/k8s-manifests)`
  - Path to the manifest file `(e.g., deployments/my-app.yaml)`
 
+
 ```bash
-name: Build, Push Docker Image, and Update External K8s Manifest
+name: Docker Image Build and Push To Docker Hub
 
 on:
   push:
     branches:
       - main
-
+    paths:
+      - '**/*' # This will trigger whenever there are changes in any file in the repository
 jobs:
-  build-and-update-manifest:
+  build:
     runs-on: ubuntu-latest
 
     env:
-      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/your-image-name
-      TARGET_REPO: your-username/k8s-manifests
-      MANIFEST_PATH: deployments/my-app.yaml
+      TARGET_REPO: your_github_username/your_manifests_repo_name
+      TARGET_REPO_TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
+      MANIFEST_PATH: your_manifests_path/deploy.yml # (deploy.yml is the manifest_file_name)
 
     steps:
-    - name: Checkout source repo
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login To Dockerhub With Dockerhub Credentials
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Generate Docker image tag
-      id: date
-      run: echo "TAG=$(date -u +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
+      - name: Tag Docker Image With Current Date and Timestamp
+        id: date_time
+        run: echo "timestamp=$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_OUTPUT
+      
+      - name: Build Docker Image
+        run: |
+          docker build -t your_docker_username/your_image_name:${{ steps.date_time.outputs.timestamp }} . 
+      
+      - name: Push Docker Image To Dockerhub Repository
+        run: |
+          docker push your_docker_username/your_image_name:${{ steps.date_time.outputs.timestamp }}
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: |
-          ${{ env.IMAGE_NAME }}:${{ env.TAG }}
-          ${{ env.IMAGE_NAME }}:latest
+#----------------------------------------------------
+# UPDATE THE K8S MANIFEST FILES IN ANOTHER REPOSITORY
+#-----------------------------------------------------
 
-    - name: Clone target repo (K8s manifests)
-      run: |
-        git clone https://x-access-token:${{ secrets.TARGET_REPO_TOKEN }}@github.com/${{ env.TARGET_REPO }} target-manifests
+# Checkout target repository
+      - name: Checkout target repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ env.TARGET_REPO }}
+          token: ${{ secrets.TARGET_REPO_TOKEN }}
 
-    - name: Update image tag in manifest
-      run: |
-        sed -i "s|${{ env.IMAGE_NAME }}:.*|${{ env.IMAGE_NAME }}:${{ env.TAG }}|g" target-manifests/${{ env.MANIFEST_PATH }}
+# Clone the target repository (K8s manifests)
+      - name: Clone Manifest Repository (K8s manifests)
+        run: |
+          git clone https://x-access-token:${{ secrets.TARGET_REPO_TOKEN }}@github.com/${{ env.TARGET_REPO }}
+          cd your_k8s_manifest_repo
 
-    - name: Commit and push updated manifest
-      run: |
-        cd target-manifests
-        git config user.name "github-actions"
-        git config user.email "github-actions@github.com"
-        git add ${{ env.MANIFEST_PATH }}
-        git commit -m "Update image to ${{ env.IMAGE_NAME }}:${{ env.TAG }}"
-        git push
+# View the old k8s manifest (This step is optional)
+      - name: Show Original Kubernetes Manifest
+        run: |
+          cat your_manifests_path/deploy.yml
+
+# Update the image tag in the Kubernetes manifest file (Required) 
+      - name: Update image tag in manifest
+        run: |
+          find ./manifests -type f -name "deploy.yml" -exec sed -i "s|${{ secrets.DOCKERHUB_USERNAME }}/your_image_name:.*|${{ secrets.DOCKERHUB_USERNAME }}/your_image_name:${{ steps.date_time.outputs.timestamp }}|g" {} +
+        
+
+ # View the new k8s manifest after update (This step is optional)
+      - name: Show Updated Kubernetes Manifest
+        run: |
+         cat your_manifests_path/deploy.yml
+
+
+# Commit and push updated manifests to target repository.
+      - name: Commit and push updated manifest
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add ${{ env.MANIFEST_PATH }}
+          git commit -m "Update image tag to ${{ steps.date_time.outputs.timestamp }}" || echo "No changes to commit"
+          git push
+# OKAY, THE WORKFLOW IS COMPLETE.
 ```
 
 
 # Step-by-Step: Create TARGET_REPO_TOKEN
 
 1. Create a Personal Access Token
- a) Go to GitHub `Developer Settings` → `Personal Access Tokens`.
- b) Click `"Fine-grained tokens"` or `"Tokens (classic)"` → `Generate new token`.
- c) Give it a name like `GitHub Actions Cross-Repo Push`.
- d) Set an expiration `(recommended: 90 days or more)`.
- e) Under `Repository Access`, choose:
+ - Go to GitHub `Developer Settings` → `Personal Access Tokens`.
+ - Click `"Fine-grained tokens"` or `"Tokens (classic)"` → `Generate new token`.
+ - Give it a name like `GitHub Actions Cross-Repo Push`.
+ - Set an expiration `(recommended: 90 days or more)`.
+ - Under `Repository Access`, choose:
     - Only select `repositories` → choose your `manifest repo` `(e.g., your-username/k8s-manifests)`
- f) Under Permissions, enable: 
+ - Under Permissions, enable: 
     - `Contents → Read and Write`
 
 2. Copy the Token
