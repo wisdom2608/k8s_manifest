@@ -98,9 +98,9 @@ jobs:
  - Paste your token value
 
 That's it! Now your GitHub Actions workflow will be able to:
- - Clone the manifest repo
- - Modify the Kubernetes YAML file
- - Push changes back using the token's credentials
+ - Clone the manifest repo.
+ - Modify the Kubernetes YAML file.
+ - Push changes back using the token's credentials.
 
  ✅ # Overview
 **Docker Image Repo**:  is a repo where the GitHub Actions workflow runs.
