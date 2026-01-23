@@ -17,6 +17,6 @@ spec:
     spec:
       containers:
         - name: my-app-container
-          image: wisdom2608/wisdomtech:2025-12-16-19-25
+          image: wisdom2608/wisdomtech:2026-01-23-11-49
           ports:
             - containerPort: 80
